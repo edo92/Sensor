@@ -39,38 +39,44 @@ class State:
     nh3 = 0
     reducing = 0
 
+    def parse(self, data):
+        return round(data, 2)
+
+    def toFahrenheit(self, celsius):
+        return (celsius * 9/5) + 32
+
     def get_all_data(self):
         return {
             "temperature": {
-                "data": self.temperature,
-                "unit": "C"
+                "data": self.parse(self.toFahrenheit(self.temperature)),
+                "unit": "F"
             },
             "pressure": {
-                "data": self.pressure,
+                "data": self.parse(self.pressure),
                 "unit": "hPa"
             },
             "humidity": {
-                "data": self.humidity,
+                "data": self.parse(self.humidity),
                 "unit": "%"
             },
             "lux": {
-                "data": self.lux,
+                "data": self.parse(self.lux),
                 "unit": "Lux"
             },
             "prox": {
-                "data": self.prox,
+                "data": self.parse(self.prox),
                 "unit": "prox"
             },
             "oxidising": {
-                "data": self.oxidising,
+                "data": self.parse(self.oxidising),
                 "unit": "kO"
             },
             "nh3": {
-                "data": self.nh3,
+                "data": self.parse(self.nh3),
                 "unit": "KO"
             },
             "reducing": {
-                "data": self.reducing,
+                "data": self.parse(self.reducing),
                 "unit": "KO"
             }
         }
@@ -82,6 +88,9 @@ class LCD:
         self.set_frame()
         self.draw_canvas()
         self.text_settings()
+
+    def get_state(self):
+        return self.state
 
     def set_state(self, state):
         self.state = state
@@ -97,7 +106,7 @@ class LCD:
 
     def text_settings(self):
         # Text settings.
-        self.font_size = 25
+        self.font_size = 21
         self.font = ImageFont.truetype(UserFont, self.font_size)
         self.text_colour = (255, 255, 255)
         self.back_colour = (0, 170, 170)
@@ -117,7 +126,6 @@ class LCD:
         self.disp.display(self.img)
 
     def lcd_init(self):
-        self.set_state(True)
         self.disp = ST7735.ST7735(
             port=0,
             cs=1,
@@ -135,12 +143,11 @@ class LCD:
         self.disp.set_backlight(0)
 
     def run(self):
+        self.set_state(True)
         self.contnent('')
         self.text_position()
         self.draw_display()
-
-        time.sleep(10)
-        self.set_state(False)
+        self.state
 
 
 class Sensor(State):
@@ -173,3 +180,31 @@ class Sensor(State):
             # Callback all data in json format
             callback(self.get_all_data())
             time.sleep(1)
+
+
+class Enviro:
+    def __init__(self, callback):
+        # Initialize sensor
+        self.sensor = Sensor()
+        # Initialize LCD
+        self.lcd = LCD()
+        # Sensor output callback method
+        self.callback = callback
+
+    def display_data(self, data):
+        temp = data['temperature']
+        hum = data['humidity']
+        temp_data = "{temp} {unit}".format(temp=temp, unit=temp['unit'])
+        humi_data = "{hum} {unit}".format(hum=hum, unit=hum['unit'])
+        self.show_data = temp_data + '\n' + humi_data
+
+        if self.lcd.get_state() == True:
+            self.lcd.contnent(self.show_data)
+            self.lcd.text_position()
+            self.lcd.draw_display()
+
+        self.callback(data)
+
+    def start(self):
+        self.lcd.run()
+        self.sensor.start(self.display_data)
